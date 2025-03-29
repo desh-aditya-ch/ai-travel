@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Travel Planner</title>
+  <!-- DaisyUI and Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@3.7.3/dist/full.css" rel="stylesheet" type="text/css" />
+  <link rel="stylesheet" href="https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css"/>
+
+  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .hidden {
+      display: none;
+    }
+    
+    .itinerary-day {
+      border-left: 4px solid #6366f1;
+      padding-left: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .time-block {
+      position: relative;
+      padding-bottom: 20px;
+    }
+    
+    .time-block:before {
+      content: '';
+      position: absolute;
+      left: -24px;
+      top: 0;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #6366f1;
+    }
+    
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top-color: #6366f1;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    
+    .itinerary-card {
+      transition: all 0.3s ease;
+    }
+    
+    .itinerary-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .language-selector {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+    
+    /* New styles */
+    .bg-gradient-to-r {
+      background-image: linear-gradient(to right, var(--tw-gradient-stops));
+    }
+    
+    .from-blue-500 {
+      --tw-gradient-from: #3b82f6;
+      --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(59, 130, 246, 0));
+    }
+    
+    .to-purple-600 {
+      --tw-gradient-to: #9333ea;
+    }
+    
+    /* Input field focus states */
+    .input:focus, .select:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+    
+    /* Card hover effects */
+    .card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Custom animations */
+    @keyframes float {
+      0% {
+        transform: translateY(0px);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+      100% {
+        transform: translateY(0px);
+      }
+    }
+    
+    .float-animation {
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    /* Better form controls */
+    .form-control {
+      margin-bottom: 1rem;
+    }
+    
+    .label-text {
+      font-weight: 500;
+      color: #4b5563;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .hero-content {
+        padding: 1.5rem;
+      }
+      
+      #welcome-title {
+        font-size: 2.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="language-selector">
+    <select id="languageSelect" class="select select-bordered select-sm">
+      <option value="en">English</option>
+      <option value="es">Español</option>
+      <option value="fr">Français</option>
+      <option value="de">Deutsch</option>
+      <option value="it">Italiano</option>
+      <option value="ja">日本語</option>
+      <option value="zh">中文</option>
+    </select>
+  </div>
+  
+  <div class="drawer">
+    <input id="main-drawer" type="checkbox" class="drawer-toggle" />
+    <div class="drawer-content">
+      <!-- Page content -->
+      <div class="navbar bg-base-100 shadow-lg">
+        <div class="flex-1">
+          <label for="main-drawer" class="btn btn-square btn-ghost drawer-button lg:hidden">
+            <i class="fas fa-bars"></i>
+          </label>
+          <a class="btn btn-ghost normal-case text-xl">
+            <i class="fas fa-plane-departure mr-2"></i>
+            <span id="navbar-title">AI Travel Planner</span>
+          </a>
+        </div>
+        <div class="flex-none gap-2">
+          <label class="swap swap-rotate">
+            <input type="checkbox" id="theme-toggle" />
+            <i class="fas fa-sun swap-on text-xl"></i>
+            <i class="fas fa-moon swap-off text-xl"></i>
+          </label>
+        </div>
+      </div>
+      
+      <main class="container mx-auto px-4 py-8">
+        <!-- Welcome Section -->
+        <div id="welcome-section" class="hero min-h-[90vh] bg-gradient-to-r from-blue-500 to-purple-600 rounded-box mb-8 relative overflow-hidden">
+          <!-- Background elements for visual appeal -->
+          <div class="absolute inset-0 overflow-hidden opacity-20">
+            <div class="absolute top-10 left-5 w-20 h-20 rounded-full bg-white"></div>
+            <div class="absolute top-40 right-10 w-32 h-32 rounded-full bg-white"></div>
+            <div class="absolute bottom-20 left-1/4 w-24 h-24 rounded-full bg-white"></div>
+            <div class="absolute top-1/3 right-1/3 w-16 h-16 rounded-full bg-white"></div>
+          </div>
+          
+          <div class="hero-content text-center text-white z-10">
+            <div class="max-w-2xl">
+              <h1 class="text-6xl font-bold mb-4" id="welcome-title">AI Travel Planner</h1>
+              <p class="text-xl mb-8" id="welcome-text">Plan your perfect trip with our AI-powered travel assistant. Create personalized itineraries based on your preferences and discover amazing experiences in India and beyond.</p>
+              <button class="btn btn-lg btn-primary bg-white text-blue-700 hover:bg-blue-100 border-none" id="get-started-btn">
+                Start Planning Your Journey
+                <i class="fas fa-arrow-right ml-2"></i>
+              </button>
+              
+              <!-- Features section -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+                <div class="bg-white bg-opacity-20 p-6 rounded-box">
+                  <i class="fas fa-bolt text-3xl mb-3"></i>
+                  <h3 class="text-xl font-bold mb-2">Quick Planning</h3>
+                  <p>Generate complete itineraries in seconds with AI assistance</p>
+                </div>
+                <div class="bg-white bg-opacity-20 p-6 rounded-box">
+                  <i class="fas fa-rupee-sign text-3xl mb-3"></i>
+                  <h3 class="text-xl font-bold mb-2">Budget Friendly</h3>
+                  <p>Plan trips within your budget with accurate cost estimates in INR</p>
+                </div>
+                <div class="bg-white bg-opacity-20 p-6 rounded-box">
+                  <i class="fas fa-map-marked-alt text-3xl mb-3"></i>
+                  <h3 class="text-xl font-bold mb-2">Local Insights</h3>
+                  <p>Discover hidden gems and authentic experiences with local tips</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Preferences Form -->
+        <div id="preferences-section" class="hidden">
+          <h2 class="text-3xl font-bold mb-6 text-center" id="preferences-title">Plan Your Perfect Trip</h2>
+          
+          <div class="card bg-base-100 shadow-xl border border-gray-100">
+            <div class="card-body p-8">
+              <form id="preferences-form">
+                <!-- Progress indicator -->
+                <div class="steps steps-horizontal w-full mb-8">
+                  <div class="step step-primary">Destination</div>
+                  <div class="step">Dates</div>
+                  <div class="step">Preferences</div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="destination-label">Destination</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-map-marker-alt text-primary"></i>
+                      </span>
+                      <input type="text" id="destination" placeholder="Where do you want to go?" class="input input-bordered w-full pl-10" required />
+                    </div>
+                  </div>
+                  
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="origin-label">Origin</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-home text-primary"></i>
+                      </span>
+                      <input type="text" id="origin" placeholder="Where are you starting from?" class="input input-bordered w-full pl-10" required />
+                    </div>
+                  </div>
+                  
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="start-date-label">Start Date</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-calendar-alt text-primary"></i>
+                      </span>
+                      <input type="date" id="start-date" class="input input-bordered w-full pl-10" required />
+                    </div>
+                  </div>
+                  
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="end-date-label">End Date</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-calendar-alt text-primary"></i>
+                      </span>
+                      <input type="date" id="end-date" class="input input-bordered w-full pl-10" required />
+                    </div>
+                  </div>
+                  
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="budget-label">Budget (INR)</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-rupee-sign text-primary"></i>
+                      </span>
+                      <input type="number" id="budget" placeholder="Enter your total budget" class="input input-bordered w-full pl-10" required />
+                    </div>
+                  </div>
+                  
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="travelers-label">Number of Travelers</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-users text-primary"></i>
+                      </span>
+                      <input type="number" id="travelers" class="input input-bordered w-full pl-10" min="1" value="1" required />
+                    </div>
+                  </div>
+                  
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="accommodation-label">Accommodation Type</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-hotel text-primary"></i>
+                      </span>
+                      <select id="accommodation-type" class="select select-bordered w-full pl-10">
+                        <option value="Budget">Budget</option>
+                        <option value="Mid-range">Mid-range</option>
+                        <option value="Luxury">Luxury</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium text-base" id="transportation-label">Transportation Preference</span>
+                    </label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-car text-primary"></i>
+                      </span>
+                      <select id="transportation-type" class="select select-bordered w-full pl-10">
+                        <option value="Public Transport">Public Transport</option>
+                        <option value="Rental Car">Rental Car</option>
+                        <option value="Taxi/Rideshare">Taxi/Rideshare</option>
+                        <option value="Walking">Walking</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="form-control mt-8">
+                  <label class="label">
+                    <span class="label-text font-medium text-base" id="interests-label">What are you interested in?</span>
+                  </label>
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="History" />
+                      <span id="interest-history">History</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="Nature" />
+                      <span id="interest-nature">Nature</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="Food" />
+                      <span id="interest-food">Food</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="Art" />
+                      <span id="interest-art">Art</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="Adventure" />
+                      <span id="interest-adventure">Adventure</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="Shopping" />
+                      <span id="interest-shopping">Shopping</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="Nightlife" />
+                      <span id="interest-nightlife">Nightlife</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer p-3 bg-base-200 rounded-box hover:bg-base-300 transition-colors">
+                      <input type="checkbox" class="checkbox checkbox-primary interest-checkbox" value="Relaxation" />
+                      <span id="interest-relaxation">Relaxation</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <div class="form-control mt-8">
+                  <button type="submit" class="btn btn-primary btn-lg w-full" id="generate-btn">
+                    Generate My Itinerary
+                    <i class="fas fa-paper-plane ml-2"></i>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Loading Section -->
+        <div id="loading-section" class="hidden">
+          <div class="flex flex-col items-center justify-center min-h-[50vh]">
+            <div class="loading-spinner mb-4"></div>
+            <h2 class="text-2xl font-bold mb-2" id="loading-title">Creating Your Perfect Trip</h2>
+            <p class="text-center" id="loading-text">Our AI is crafting a personalized itinerary based on your preferences. This might take a minute...</p>
+          </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="results-section" class="hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold" id="results-title">Your Travel Itinerary</h2>
+            <div class="flex gap-2">
+              <button class="btn btn-outline btn-sm" id="edit-preferences-btn">
+                <i class="fas fa-edit mr-1"></i>
+                <span id="edit-preferences-text">Edit Preferences</span>
+              </button>
+              <button class="btn btn-primary btn-sm" id="download-pdf-btn">
+                <i class="fas fa-download mr-1"></i>
+                <span id="download-pdf-text">Download PDF</span>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Itinerary Overview -->
+          <div class="card bg-base-100 shadow-xl mb-8">
+            <div class="card-body">
+              <h3 class="card-title" id="overview-title">Trip Overview</h3>
+              <div class="stats stats-vertical lg:stats-horizontal shadow mt-4">
+                <div class="stat">
+                  <div class="stat-title" id="destination-stat">Destination</div>
+                  <div class="stat-value text-lg" id="destination-value">-</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-title" id="duration-stat">Duration</div>
+                  <div class="stat-value text-lg" id="duration-value">-</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-title" id="dates-stat">Dates</div>
+                  <div class="stat-value text-lg" id="dates-value">-</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-title" id="budget-stat">Budget</div>
+                  <div class="stat-value text-lg" id="budget-value">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tabs for different sections -->
+          <div class="tabs tabs-boxed mb-6">
+            <a class="tab tab-active" id="itinerary-tab">
+              <i class="fas fa-calendar-days mr-2"></i>
+              <span id="itinerary-tab-text">Itinerary</span>
+            </a>
+            <a class="tab" id="flights-tab">
+              <i class="fas fa-plane mr-2"></i>
+              <span id="flights-tab-text">Flights</span>
+            </a>
+            <a class="tab" id="accommodations-tab">
+              <i class="fas fa-hotel mr-2"></i>
+              <span id="accommodations-tab-text">Accommodations</span>
+            </a>
+            <a class="tab" id="activities-tab">
+              <i class="fas fa-list-check mr-2"></i>
+              <span id="activities-tab-text">Activities</span>
+            </a>
+          </div>
+          
+          <!-- Itinerary Content -->
+          <div id="itinerary-content" class="tab-content">
+            <div id="day-buttons" class="flex flex-wrap gap-2 mb-6">
+              <!-- Day buttons will be generated here -->
+            </div>
+            
+            <div id="itinerary-days">
+              <!-- Itinerary days will be generated here -->
+            </div>
+          </div>
+          
+          <!-- Flights Content -->
+          <div id="flights-content" class="tab-content hidden">
+            <div class="card bg-base-100 shadow-xl mb-6">
+              <div class="card-body">
+                <h3 class="card-title mb-4" id="flights-title">Flight Options</h3>
+                <div id="flights-container" class="grid grid-cols-1 gap-4">
+                  <!-- Flight cards will be generated here -->
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Accommodations Content -->
+          <div id="accommodations-content" class="tab-content hidden">
+            <div class="card bg-base-100 shadow-xl mb-6">
+              <div class="card-body">
+                <h3 class="card-title mb-4" id="accommodations-title">Accommodation Options</h3>
+                <div id="accommodations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <!-- Accommodation cards will be generated here -->
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Activities Content -->
+          <div id="activities-content" class="tab-content hidden">
+            <div class="card bg-base-100 shadow-xl mb-6">
+              <div class="card-body">
+                <h3 class="card-title mb-4" id="activities-title">Recommended Activities</h3>
+                <div id="activities-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- Activity cards will be generated here -->
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Additional Tips Section -->
+          <div class="card bg-base-100 shadow-xl mt-8">
+            <div class="card-body">
+              <h3 class="card-title" id="tips-title">Local Tips & Insights</h3>
+              <ul id="tips-list" class="list-disc pl-5 mt-4">
+                <!-- Tips will be generated here -->
+              </ul>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      <footer class="footer p-10 bg-base-200 text-base-content">
+        <div>
+          <span class="footer-title" id="footer-about">About</span>
+          <a class="link link-hover" id="footer-about-us">About us</a>
+          <a class="link link-hover" id="footer-contact">Contact</a>
+          <a class="link link-hover" id="footer-privacy">Privacy Policy</a>
+          <a class="link link-hover" id="footer-terms">Terms of Service</a>
+        </div>
+        <div>
+          <span class="footer-title" id="footer-features">Features</span>
+          <a class="link link-hover" id="footer-itineraries">Itineraries</a>
+          <a class="link link-hover" id="footer-booking">Booking Integration</a>
+          <a class="link link-hover" id="footer-local">Local Recommendations</a>
+          <a class="link link-hover" id="footer-languages">Multi-language Support</a>
+        </div>
+        <div>
+          <span class="footer-title" id="footer-social">Social</span>
+          <div class="grid grid-flow-col gap-4">
+            <a><i class="fab fa-twitter text-2xl"></i></a>
+            <a><i class="fab fa-facebook text-2xl"></i></a>
+            <a><i class="fab fa-instagram text-2xl"></i></a>
+            <a><i class="fab fa-linkedin text-2xl"></i></a>
+          </div>
+        </div>
+      </footer>
+    </div>
+    
+    <!-- Sidebar drawer -->
+    <div class="drawer-side">
+      <label for="main-drawer" class="drawer-overlay"></label>
+      <ul class="menu p-4 w-80 h-full bg-base-200 text-base-content">
+        <li class="mb-2">
+          <h2 class="text-xl font-bold mb-2" id="menu-title">Menu</h2>
+        </li>
+        <li><a id="menu-home">Home</a></li>
+        <li><a id="menu-saved">Saved Itineraries</a></li>
+        <li><a id="menu-profile">Profile</a></li>
+        <li><a id="menu-settings">Settings</a></li>
+        <li><a id="menu-help">Help & Support</a></li>
+      </ul>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // UI Elements
+      const welcomeSection = document.getElementById('welcome-section');
+      const preferencesSection = document.getElementById('preferences-section');
+      const loadingSection = document.getElementById('loading-section');
+      const resultsSection = document.getElementById('results-section');
+      const preferencesForm = document.getElementById('preferences-form');
+      const getStartedBtn = document.getElementById('get-started-btn');
+      const editPreferencesBtn = document.getElementById('edit-preferences-btn');
+      const downloadPdfBtn = document.getElementById('download-pdf-btn');
+      const themeToggle = document.getElementById('theme-toggle');
+      const itineraryTab = document.getElementById('itinerary-tab');
+      const flightsTab = document.getElementById('flights-tab');
+      const accommodationsTab = document.getElementById('accommodations-tab');
+      const activitiesTab = document.getElementById('activities-tab');
+      const itineraryContent = document.getElementById('itinerary-content');
+      const flightsContent = document.getElementById('flights-content');
+      const accommodationsContent = document.getElementById('accommodations-content');
+      const activitiesContent = document.getElementById('activities-content');
+      const languageSelect = document.getElementById('languageSelect');
+      
+      // Global state
+      let itineraryData = null;
+      let flightData = null;
+      let accommodationData = null;
+      let activityData = null;
+      let currentLanguage = 'en';
+      
+      // Translations
+      const translations = {
+        en: {
+          navbarTitle: 'AI Travel Planner',
+          welcomeTitle: 'AI Travel Planner',
+          welcomeText: 'Plan your perfect trip with our AI-powered travel assistant. Create personalized itineraries based on your preferences and discover amazing experiences in India and beyond.',
+          getStarted: 'Start Planning Your Journey',
+          preferencesTitle: 'Plan Your Perfect Trip',
+          destinationLabel: 'Destination',
+          originLabel: 'Origin',
+          startDateLabel: 'Start Date',
+          endDateLabel: 'End Date',
+          budgetLabel: 'Budget (INR)',
+          travelersLabel: 'Number of Travelers',
+          accommodationLabel: 'Accommodation Type',
+          transportationLabel: 'Transportation Preference',
+          interestsLabel: 'What are you interested in?',
+          interestHistory: 'History',
+          interestNature: 'Nature',
+          interestFood: 'Food',
+          interestArt: 'Art',
+          interestAdventure: 'Adventure',
+          interestShopping: 'Shopping',
+          interestNightlife: 'Nightlife',
+          interestRelaxation: 'Relaxation',
+          generateBtn: 'Generate My Itinerary',
+          loadingTitle: 'Creating Your Perfect Trip',
+          loadingText: 'Our AI is crafting a personalized itinerary based on your preferences. This might take a minute...',
+          resultsTitle: 'Your Travel Itinerary',
+          editPreferences: 'Edit Preferences',
+          downloadPdf: 'Download PDF',
+          overviewTitle: 'Trip Overview',
+          destinationStat: 'Destination',
+          durationStat: 'Duration',
+          datesStat: 'Dates',
+          budgetStat: 'Budget',
+          itineraryTab: 'Itinerary',
+          flightsTab: 'Flights',
+          accommodationsTab: 'Accommodations',
+          activitiesTab: 'Activities',
+          flightsTitle: 'Flight Options',
+          accommodationsTitle: 'Accommodation Options',
+          activitiesTitle: 'Recommended Activities',
+          tipsTitle: 'Local Tips & Insights',
+          footerAbout: 'About',
+          footerAboutUs: 'About us',
+          footerContact: 'Contact',
+          footerPrivacy: 'Privacy Policy',
+          footerTerms: 'Terms of Service',
+          footerFeatures: 'Features',
+          footerItineraries: 'Itineraries',
+          footerBooking: 'Booking Integration',
+          footerLocal: 'Local Recommendations',
+          footerLanguages: 'Multi-language Support',
+          footerSocial: 'Social',
+          menuTitle: 'Menu',
+          menuHome: 'Home',
+          menuSaved: 'Saved Itineraries',
+          menuProfile: 'Profile',
+          menuSettings: 'Settings',
+          menuHelp: 'Help & Support',
+          dayPrefix: 'Day',
+          morning: 'Morning',
+          afternoon: 'Afternoon',
+          evening: 'Evening',
+          breakfast: 'Breakfast',
+          lunch: 'Lunch',
+          dinner: 'Dinner',
+          estimatedCost: 'Estimated Cost',
+          viewDetails: 'View Details',
+          bookNow: 'Book Now',
+          accommodation: 'Accommodation',
+          airline: 'Airline',
+          departure: 'Departure',
+          arrival: 'Arrival',
+          duration: 'Duration',
+          stops: 'Stops',
+          price: 'Price',
+          perNight: 'per night',
+          totalPrice: 'Total Price',
+          rating: 'Rating',
+          amenities: 'Amenities',
+          category: 'Category',
+          bestTime: 'Best Time to Visit',
+          location: 'Location'
+        },
+        // Other languages would go here
+      };
+      
+      // Theme toggle functionality
+      themeToggle.addEventListener('change', function() {
+        if (this.checked) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      });
+      
+      // Button event listeners
+      getStartedBtn.addEventListener('click', function() {
+        welcomeSection.classList.add('hidden');
+        preferencesSection.classList.remove('hidden');
+      });
+      
+      editPreferencesBtn.addEventListener('click', function() {
+        resultsSection.classList.add('hidden');
+        preferencesSection.classList.remove('hidden');
+      });
+      
+      // Tab switching functionality
+      function activateTab(tab, content) {
+        // Deactivate all tabs
+        itineraryTab.classList.remove('tab-active');
+        flightsTab.classList.remove('tab-active');
+        accommodationsTab.classList.remove('tab-active');
+        activitiesTab.classList.remove('tab-active');
+        
+        // Hide all content
+        itineraryContent.classList.add('hidden');
+        flightsContent.classList.add('hidden');
+        accommodationsContent.classList.add('hidden');
+        activitiesContent.classList.add('hidden');
+        
+        // Activate the selected tab and content
+        tab.classList.add('tab-active');
+        content.classList.remove('hidden');
+      }
+      
+      itineraryTab.addEventListener('click', function() {
+        activateTab(itineraryTab, itineraryContent);
+      });
+      
+      flightsTab.addEventListener('click', function() {
+        activateTab(flightsTab, flightsContent);
+        if (!flightData) {
+          fetchFlightData();
+        }
+      });
+      
+      accommodationsTab.addEventListener('click', function() {
+        activateTab(accommodationsTab, accommodationsContent);
+        if (!accommodationData) {
+          fetchAccommodationData();
+        }
+      });
+      
+      activitiesTab.addEventListener('click', function() {
+        activateTab(activitiesTab, activitiesContent);
+        if (!activityData) {
+          fetchActivityData();
+        }
+      });
+      
+      // Form submission
+      preferencesForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get selected interests
+        const interestCheckboxes = document.querySelectorAll('.interest-checkbox:checked');
+        const interests = Array.from(interestCheckboxes).map(checkbox => checkbox.value);
+        
+        if (interests.length === 0) {
+          alert('Please select at least one interest.');
+          return;
+        }
+        
+        const userPreferences = {
+          destination: document.getElementById('destination').value,
+          origin: document.getElementById('origin').value,
+          startDate: document.getElementById('start-date').value,
+          endDate: document.getElementById('end-date').value,
+          budget: document.getElementById('budget').value,
+          travelers: document.getElementById('travelers').value,
+          accommodationType: document.getElementById('accommodation-type').value,
+          transportationType: document.getElementById('transportation-type').value,
+          interests: interests
+        };
+        
+        preferencesSection.classList.add('hidden');
+        loadingSection.classList.remove('hidden');
+        
+        generateItinerary(userPreferences);
+      });
+      
+      // Language selection
+      languageSelect.addEventListener('change', function() {
+        currentLanguage = this.value;
+        updateUILanguage();
+      });
+      
+      // Update UI with selected language
+      function updateUILanguage() {
+        const lang = translations[currentLanguage] || translations.en;
+        
+        // Update all text elements
+        document.getElementById('navbar-title').textContent = lang.navbarTitle;
+        document.getElementById('welcome-title').textContent = lang.welcomeTitle;
+        document.getElementById('welcome-text').textContent = lang.welcomeText;
+        document.getElementById('get-started-btn').textContent = lang.getStarted;
+        // ... and so on for all text elements
+        
+        // Update all form labels
+        document.getElementById('preferences-title').textContent = lang.preferencesTitle;
+        document.getElementById('destination-label').textContent = lang.destinationLabel;
+        document.getElementById('origin-label').textContent = lang.originLabel;
+        document.getElementById('start-date-label').textContent = lang.startDateLabel;
+        document.getElementById('end-date-label').textContent = lang.endDateLabel;
+        document.getElementById('budget-label').textContent = lang.budgetLabel;
+        document.getElementById('travelers-label').textContent = lang.travelersLabel;
+        document.getElementById('accommodation-label').textContent = lang.accommodationLabel;
+        document.getElementById('transportation-label').textContent = lang.transportationLabel;
+        document.getElementById('interests-label').textContent = lang.interestsLabel;
+        document.getElementById('interest-history').textContent = lang.interestHistory;
+        document.getElementById('interest-nature').textContent = lang.interestNature;
+        document.getElementById('interest-food').textContent = lang.interestFood;
+        document.getElementById('interest-art').textContent = lang.interestArt;
+        document.getElementById('interest-adventure').textContent = lang.interestAdventure;
+        document.getElementById('interest-shopping').textContent = lang.interestShopping;
+        document.getElementById('interest-nightlife').textContent = lang.interestNightlife;
+        document.getElementById('interest-relaxation').textContent = lang.interestRelaxation;
+        document.getElementById('generate-btn').textContent = lang.generateBtn;
+        
+        // Update loading section
+        document.getElementById('loading-title').textContent = lang.loadingTitle;
+        document.getElementById('loading-text').textContent = lang.loadingText;
+        
+        // Update results section
+        document.getElementById('results-title').textContent = lang.resultsTitle;
+        document.getElementById('edit-preferences-text').textContent = lang.editPreferences;
+        document.getElementById('download-pdf-text').textContent = lang.downloadPdf;
+        document.getElementById('overview-title').textContent = lang.overviewTitle;
+        document.getElementById('destination-stat').textContent = lang.destinationStat;
+        document.getElementById('duration-stat').textContent = lang.durationStat;
+        document.getElementById('dates-stat').textContent = lang.datesStat;
+        document.getElementById('budget-stat').textContent = lang.budgetStat;
+        document.getElementById('itinerary-tab-text').textContent = lang.itineraryTab;
+        document.getElementById('flights-tab-text').textContent = lang.flightsTab;
+        document.getElementById('accommodations-tab-text').textContent = lang.accommodationsTab;
+        document.getElementById('activities-tab-text').textContent = lang.activitiesTab;
+        document.getElementById('flights-title').textContent = lang.flightsTitle;
+        document.getElementById('accommodations-title').textContent = lang.accommodationsTitle;
+        document.getElementById('activities-title').textContent = lang.activitiesTitle;
+        document.getElementById('tips-title').textContent = lang.tipsTitle;
+        
+        // Update footer
+        document.getElementById('footer-about').textContent = lang.footerAbout;
+        document.getElementById('footer-about-us').textContent = lang.footerAboutUs;
+        document.getElementById('footer-contact').textContent = lang.footerContact;
+        document.getElementById('footer-privacy').textContent = lang.footerPrivacy;
+        document.getElementById('footer-terms').textContent = lang.footerTerms;
+        document.getElementById('footer-features').textContent = lang.footerFeatures;
+        document.getElementById('footer-itineraries').textContent = lang.footerItineraries;
+        document.getElementById('footer-booking').textContent = lang.footerBooking;
+        document.getElementById('footer-local').textContent = lang.footerLocal;
+        document.getElementById('footer-languages').textContent = lang.footerLanguages;
+        document.getElementById('footer-social').textContent = lang.footerSocial;
+        
+        // Update menu
+        document.getElementById('menu-title').textContent = lang.menuTitle;
+        document.getElementById('menu-home').textContent = lang.menuHome;
+        document.getElementById('menu-saved').textContent = lang.menuSaved;
+        document.getElementById('menu-profile').textContent = lang.menuProfile;
+        document.getElementById('menu-settings').textContent = lang.menuSettings;
+        document.getElementById('menu-help').textContent = lang.menuHelp;
+        
+        // If itinerary data exists, update the itinerary display
+        if (itineraryData) {
+          displayItinerary(itineraryData);
+        }
+        
+        // Update other dynamic content if it exists
+        if (flightData) {
+          displayFlightData(flightData);
+        }
+        
+        if (accommodationData) {
+          displayAccommodationData(accommodationData);
+        }
+        
+        if (activityData) {
+          displayActivityData(activityData);
+        }
+      }
+      
+      // API calls
+      async function generateItinerary(preferences) {
+        try {
+          const response = await fetch('/api/generate-itinerary', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(preferences)
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to generate itinerary');
+          }
+          
+          itineraryData = await response.json();
+          displayItinerary(itineraryData);
+          
+          loadingSection.classList.add('hidden');
+          resultsSection.classList.remove('hidden');
+        } catch (error) {
+          console.error('Error:', error);
+          loadingSection.classList.add('hidden');
+          preferencesSection.classList.remove('hidden');
+          alert('An error occurred while generating your itinerary. Please try again.');
+        }
+      }
+      
+      async function fetchFlightData() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.classList.add('flex', 'justify-center', 'items-center', 'my-8');
+        loadingDiv.innerHTML = '<div class="loading-spinner"></div>';
+        
+        document.getElementById('flights-container').innerHTML = '';
+        document.getElementById('flights-container').appendChild(loadingDiv);
+        
+        try {
+          const response = await fetch('/api/flights', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              origin: document.getElementById('origin').value,
+              destination: document.getElementById('destination').value,
+              date: document.getElementById('start-date').value
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch flight data');
+          }
+          
+          flightData = await response.json();
+          displayFlightData(flightData);
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById('flights-container').innerHTML = '<p class="text-error">An error occurred while fetching flight data. Please try again later.</p>';
+        }
+      }
+      
+      async function fetchAccommodationData() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.classList.add('flex', 'justify-center', 'items-center', 'my-8');
+        loadingDiv.innerHTML = '<div class="loading-spinner"></div>';
+        
+        document.getElementById('accommodations-container').innerHTML = '';
+        document.getElementById('accommodations-container').appendChild(loadingDiv);
+        
+        try {
+          const response = await fetch('/api/accommodations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              destination: document.getElementById('destination').value,
+              checkIn: document.getElementById('start-date').value,
+              checkOut: document.getElementById('end-date').value,
+              preferences: document.getElementById('accommodation-type').value
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch accommodation data');
+          }
+          
+          accommodationData = await response.json();
+          displayAccommodationData(accommodationData);
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById('accommodations-container').innerHTML = '<p class="text-error">An error occurred while fetching accommodation data. Please try again later.</p>';
+        }
+      }
+      
+      async function fetchActivityData() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.classList.add('flex', 'justify-center', 'items-center', 'my-8');
+        loadingDiv.innerHTML = '<div class="loading-spinner"></div>';
+        
+        document.getElementById('activities-container').innerHTML = '';
+        document.getElementById('activities-container').appendChild(loadingDiv);
+        
+        try {
+          const interestCheckboxes = document.querySelectorAll('.interest-checkbox:checked');
+          const interests = Array.from(interestCheckboxes).map(checkbox => checkbox.value);
+          
+          const response = await fetch('/api/activities', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              destination: document.getElementById('destination').value,
+              interests: interests
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch activity data');
+          }
+          
+          activityData = await response.json();
+          displayActivityData(activityData);
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById('activities-container').innerHTML = '<p class="text-error">An error occurred while fetching activity data. Please try again later.</p>';
+        }
+      }
+      
+      // Display functions
+      function displayItinerary(data) {
+        const lang = translations[currentLanguage] || translations.en;
+        
+        // Update overview card
+        document.getElementById('destination-value').textContent = data.destination;
+        document.getElementById('duration-value').textContent = data.duration;
+        
+        const startDate = new Date(data.itinerary[0].date);
+        const endDate = new Date(data.itinerary[data.itinerary.length - 1].date);
+        
+        document.getElementById('dates-value').textContent = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+        document.getElementById('budget-value').textContent = data.totalEstimatedCost;
+        
+        // Generate day buttons
+        const dayButtonsContainer = document.getElementById('day-buttons');
+        dayButtonsContainer.innerHTML = '';
+        
+        data.itinerary.forEach((day, index) => {
+          const button = document.createElement('button');
+          button.classList.add('btn', 'btn-outline', 'btn-sm');
+          button.textContent = `${lang.dayPrefix} ${day.day}`;
+          button.addEventListener('click', () => {
+            // Hide all day content
+            document.querySelectorAll('.day-content').forEach(content => {
+              content.classList.add('hidden');
+            });
+            
+            // Show selected day
+            document.getElementById(`day-${day.day}`).classList.remove('hidden');
+            
+            // Update active button
+            document.querySelectorAll('#day-buttons .btn').forEach(btn => {
+              btn.classList.remove('btn-active');
+            });
+            button.classList.add('btn-active');
+          });
+          
+          if (index === 0) {
+            button.classList.add('btn-active');
+          }
+          
+          dayButtonsContainer.appendChild(button);
+        });
+        
+        // Generate itinerary days
+        const itineraryDaysContainer = document.getElementById('itinerary-days');
+        itineraryDaysContainer.innerHTML = '';
+        
+        data.itinerary.forEach((day, index) => {
+          const dayElement = document.createElement('div');
+          dayElement.id = `day-${day.day}`;
+          dayElement.classList.add('day-content');
+          
+          if (index !== 0) {
+            dayElement.classList.add('hidden');
+          }
+          
+          // Day header
+          const dayHeader = document.createElement('div');
+          dayHeader.classList.add('flex', 'justify-between', 'items-center', 'mb-4');
+          
+          const dayTitle = document.createElement('h3');
+          dayTitle.classList.add('text-2xl', 'font-bold');
+          dayTitle.textContent = `${lang.dayPrefix} ${day.day}: ${new Date(day.date).toLocaleDateString()}`;
+          
+          dayHeader.appendChild(dayTitle);
+          dayElement.appendChild(dayHeader);
+          
+          // Activities timeline
+          const timelineDiv = document.createElement('div');
+          timelineDiv.classList.add('itinerary-day');
+          
+          // Morning
+          const morningDiv = document.createElement('div');
+          morningDiv.classList.add('time-block');
+          
+          const morningTitle = document.createElement('h4');
+          morningTitle.classList.add('text-xl', 'font-semibold', 'mb-2');
+          morningTitle.textContent = lang.morning;
+          
+          morningDiv.appendChild(morningTitle);
+          
+          // Find morning activities
+          const morningActivities = day.activities.filter(activity => 
+            activity.time.toLowerCase().includes('morning'));
+          
+          morningActivities.forEach(activity => {
+            const activityCard = createActivityCard(activity, lang);
+            morningDiv.appendChild(activityCard);
+          });
+          
+          timelineDiv.appendChild(morningDiv);
+          
+          // Breakfast
+          if (day.meals && day.meals.some(meal => meal.type.toLowerCase().includes('breakfast'))) {
+            const breakfast = day.meals.find(meal => meal.type.toLowerCase().includes('breakfast'));
+            const mealCard = createMealCard(breakfast, lang);
+            timelineDiv.appendChild(mealCard);
+          }
+          
+          // Afternoon
+          const afternoonDiv = document.createElement('div');
+          afternoonDiv.classList.add('time-block');
+          
+          const afternoonTitle = document.createElement('h4');
+          afternoonTitle.classList.add('text-xl', 'font-semibold', 'mb-2');
+          afternoonTitle.textContent = lang.afternoon;
+          
+          afternoonDiv.appendChild(afternoonTitle);
+          
+          // Find afternoon activities
+          const afternoonActivities = day.activities.filter(activity => 
+            activity.time.toLowerCase().includes('afternoon'));
+          
+          afternoonActivities.forEach(activity => {
+            const activityCard = createActivityCard(activity, lang);
+            afternoonDiv.appendChild(activityCard);
+          });
+          
+          timelineDiv.appendChild(afternoonDiv);
+          
+          // Lunch
+          if (day.meals && day.meals.some(meal => meal.type.toLowerCase().includes('lunch'))) {
+            const lunch = day.meals.find(meal => meal.type.toLowerCase().includes('lunch'));
+            const mealCard = createMealCard(lunch, lang);
+            timelineDiv.appendChild(mealCard);
+          }
+          
+          // Evening
+          const eveningDiv = document.createElement('div');
+          eveningDiv.classList.add('time-block');
+          
+          const eveningTitle = document.createElement('h4');
+          eveningTitle.classList.add('text-xl', 'font-semibold', 'mb-2');
+          eveningTitle.textContent = lang.evening;
+          
+          eveningDiv.appendChild(eveningTitle);
+          
+          // Find evening activities
+          const eveningActivities = day.activities.filter(activity => 
+            activity.time.toLowerCase().includes('evening'));
+          
+          eveningActivities.forEach(activity => {
+            const activityCard = createActivityCard(activity, lang);
+            eveningDiv.appendChild(activityCard);
+          });
+          
+          timelineDiv.appendChild(eveningDiv);
+          
+          // Dinner
+          if (day.meals && day.meals.some(meal => meal.type.toLowerCase().includes('dinner'))) {
+            const dinner = day.meals.find(meal => meal.type.toLowerCase().includes('dinner'));
+            const mealCard = createMealCard(dinner, lang);
+            timelineDiv.appendChild(mealCard);
+          }
+          
+          // Accommodation
+          if (day.accommodation) {
+            const accommodationDiv = document.createElement('div');
+            accommodationDiv.classList.add('card', 'bg-base-200', 'shadow-sm', 'mt-4');
+            
+            const accommodationBody = document.createElement('div');
+            accommodationBody.classList.add('card-body', 'p-4');
+            
+            const accommodationTitle = document.createElement('h5');
+            accommodationTitle.classList.add('card-title', 'text-lg');
+            accommodationTitle.textContent = `${lang.accommodation}: ${day.accommodation.name}`;
+            
+            const accommodationDetails = document.createElement('p');
+            accommodationDetails.textContent = `${day.accommodation.type} - ${day.accommodation.location}`;
+            
+            const accommodationCost = document.createElement('p');
+            accommodationCost.classList.add('font-semibold', 'mt-2');
+            accommodationCost.textContent = `${lang.estimatedCost}: ${day.accommodation.estimatedCost}`;
+            
+            accommodationBody.appendChild(accommodationTitle);
+            accommodationBody.appendChild(accommodationDetails);
+            accommodationBody.appendChild(accommodationCost);
+            accommodationDiv.appendChild(accommodationBody);
+            
+            timelineDiv.appendChild(accommodationDiv);
+          }
+          
+          dayElement.appendChild(timelineDiv);
+          itineraryDaysContainer.appendChild(dayElement);
+        });
+        
+        // Add tips
+        const tipsList = document.getElementById('tips-list');
+        tipsList.innerHTML = '';
+        
+        if (data.additionalTips && data.additionalTips.length > 0) {
+          data.additionalTips.forEach(tip => {
+            const tipItem = document.createElement('li');
+            tipItem.classList.add('mb-2');
+            tipItem.textContent = tip;
+            tipsList.appendChild(tipItem);
+          });
+        }
+      }
+      
+      function displayFlightData(flights) {
+        const lang = translations[currentLanguage] || translations.en;
+        const flightsContainer = document.getElementById('flights-container');
+        flightsContainer.innerHTML = '';
+        
+        if (!flights || flights.length === 0) {
+          flightsContainer.innerHTML = '<p class="text-center">No flight options available.</p>';
+          return;
+        }
+        
+        flights.forEach(flight => {
+          const flightCard = document.createElement('div');
+          flightCard.classList.add('card', 'bg-base-100', 'shadow-md', 'mb-4', 'itinerary-card');
+          
+          const flightBody = document.createElement('div');
+          flightBody.classList.add('card-body', 'p-4');
+          
+          const flightHeader = document.createElement('div');
+          flightHeader.classList.add('flex', 'justify-between', 'items-center', 'mb-4');
+          
+          const airlineDiv = document.createElement('div');
+          airlineDiv.classList.add('flex', 'items-center');
+          
+          const airlineIcon = document.createElement('i');
+          airlineIcon.classList.add('fas', 'fa-plane', 'text-primary', 'mr-2');
+          
+          const airlineName = document.createElement('h3');
+          airlineName.classList.add('card-title', 'text-lg');
+          airlineName.textContent = `${flight.airline} ${flight.flightNumber}`;
+          
+          airlineDiv.appendChild(airlineIcon);
+          airlineDiv.appendChild(airlineName);
+          
+          const priceDiv = document.createElement('div');
+          priceDiv.classList.add('text-xl', 'font-bold', 'text-primary');
+          priceDiv.textContent = flight.price;
+          
+          flightHeader.appendChild(airlineDiv);
+          flightHeader.appendChild(priceDiv);
+          
+          const flightDetails = document.createElement('div');
+          flightDetails.classList.add('grid', 'grid-cols-1', 'md:grid-cols-3', 'gap-4', 'mb-4');
+          
+          const departureDiv = document.createElement('div');
+          departureDiv.innerHTML = `<p class="font-semibold">${lang.departure}</p>
+                                    <p>${flight.departureTime} - ${flight.departureAirport}</p>`;
+          
+          const durationDiv = document.createElement('div');
+          durationDiv.classList.add('text-center');
+          durationDiv.innerHTML = `<p class="font-semibold">${lang.duration}</p>
+                                   <p>${flight.duration} (${flight.stops} ${lang.stops})</p>`;
+          
+          const arrivalDiv = document.createElement('div');
+          arrivalDiv.classList.add('text-right');
+          arrivalDiv.innerHTML = `<p class="font-semibold">${lang.arrival}</p>
+                                  <p>${flight.arrivalTime} - ${flight.arrivalAirport}</p>`;
+          
+          flightDetails.appendChild(departureDiv);
+          flightDetails.appendChild(durationDiv);
+          flightDetails.appendChild(arrivalDiv);
+          
+          const btnGroup = document.createElement('div');
+          btnGroup.classList.add('card-actions', 'justify-end', 'mt-4');
+          
+          const viewDetailsBtn = document.createElement('button');
+          viewDetailsBtn.classList.add('btn', 'btn-outline', 'btn-sm');
+          viewDetailsBtn.textContent = lang.viewDetails;
+          
+          const bookNowBtn = document.createElement('button');
+          bookNowBtn.classList.add('btn', 'btn-primary', 'btn-sm');
+          bookNowBtn.textContent = lang.bookNow;
+          
+          btnGroup.appendChild(viewDetailsBtn);
+          btnGroup.appendChild(bookNowBtn);
+          
+          flightBody.appendChild(flightHeader);
+          flightBody.appendChild(flightDetails);
+          flightBody.appendChild(btnGroup);
+          flightCard.appendChild(flightBody);
+          
+          flightsContainer.appendChild(flightCard);
+        });
+      }
+      
+      function displayAccommodationData(accommodations) {
+        const lang = translations[currentLanguage] || translations.en;
+        const accommodationsContainer = document.getElementById('accommodations-container');
+        accommodationsContainer.innerHTML = '';
+        
+        if (!accommodations || accommodations.length === 0) {
+          accommodationsContainer.innerHTML = '<p class="text-center">No accommodation options available.</p>';
+          return;
+        }
+        
+        accommodations.forEach(accommodation => {
+          const accommodationCard = document.createElement('div');
+          accommodationCard.classList.add('card', 'bg-base-100', 'shadow-md', 'itinerary-card');
+          
+          const accommodationBody = document.createElement('div');
+          accommodationBody.classList.add('card-body', 'p-4');
+          
+          const accommodationName = document.createElement('h3');
+          accommodationName.classList.add('card-title', 'text-lg');
+          accommodationName.textContent = accommodation.name;
+          
+          const typeLocation = document.createElement('p');
+          typeLocation.classList.add('text-sm', 'mb-3');
+          typeLocation.textContent = `${accommodation.type} - ${accommodation.location}`;
+          
+          const priceDiv = document.createElement('div');
+          priceDiv.classList.add('flex', 'justify-between', 'items-center', 'mb-3');
+          
+          const pricePerNight = document.createElement('p');
+          pricePerNight.innerHTML = `<span class="font-bold text-primary">${accommodation.pricePerNight}</span> <span class="text-sm">${lang.perNight}</span>`;
+          
+          const totalPrice = document.createElement('p');
+          totalPrice.innerHTML = `<span class="text-sm">${lang.totalPrice}: </span><span class="font-bold">${accommodation.totalPrice}</span>`;
+          
+          priceDiv.appendChild(pricePerNight);
+          priceDiv.appendChild(totalPrice);
+          
+          const ratingDiv = document.createElement('div');
+          ratingDiv.classList.add('flex', 'items-center', 'gap-1', 'mb-3');
+          
+          ratingDiv.innerHTML = `<span class="font-semibold">${lang.rating}: </span><span>${accommodation.rating}</span>`;
+          
+          // Add star icons based on rating
+          const rating = parseFloat(accommodation.rating);
+          const fullStars = Math.floor(rating);
+          const hasHalfStar = rating % 1 >= 0.5;
+          
+          for (let i = 0; i < fullStars; i++) {
+            const star = document.createElement('i');
+            star.classList.add('fas', 'fa-star', 'text-warning');
+            ratingDiv.appendChild(star);
+          }
+          
+          if (hasHalfStar) {
+            const halfStar = document.createElement('i');
+            halfStar.classList.add('fas', 'fa-star-half-alt', 'text-warning');
+            ratingDiv.appendChild(halfStar);
+          }
+          
+          const amenitiesDiv = document.createElement('div');
+          amenitiesDiv.classList.add('mb-3');
+          
+          const amenitiesTitle = document.createElement('p');
+          amenitiesTitle.classList.add('font-semibold', 'mb-1');
+          amenitiesTitle.textContent = `${lang.amenities}:`;
+          
+          const amenitiesList = document.createElement('div');
+          amenitiesList.classList.add('flex', 'flex-wrap', 'gap-1');
+          
+          accommodation.amenities.forEach(amenity => {
+            const badge = document.createElement('span');
+            badge.classList.add('badge', 'badge-outline');
+            badge.textContent = amenity;
+            amenitiesList.appendChild(badge);
+          });
+          
+          amenitiesDiv.appendChild(amenitiesTitle);
+          amenitiesDiv.appendChild(amenitiesList);
+          
+          const description = document.createElement('p');
+          description.classList.add('text-sm', 'mb-4');
+          description.textContent = accommodation.description;
+          
+          const btnGroup = document.createElement('div');
+          btnGroup.classList.add('card-actions', 'justify-end');
+          
+          const viewDetailsBtn = document.createElement('button');
+          viewDetailsBtn.classList.add('btn', 'btn-outline', 'btn-sm');
+          viewDetailsBtn.textContent = lang.viewDetails;
+          
+          const bookNowBtn = document.createElement('button');
+          bookNowBtn.classList.add('btn', 'btn-primary', 'btn-sm');
+          bookNowBtn.textContent = lang.bookNow;
+          
+          btnGroup.appendChild(viewDetailsBtn);
+          btnGroup.appendChild(bookNowBtn);
+          
+          accommodationBody.appendChild(accommodationName);
+          accommodationBody.appendChild(typeLocation);
+          accommodationBody.appendChild(priceDiv);
+          accommodationBody.appendChild(ratingDiv);
+          accommodationBody.appendChild(amenitiesDiv);
+          accommodationBody.appendChild(description);
+          accommodationBody.appendChild(btnGroup);
+          
+          accommodationCard.appendChild(accommodationBody);
+          accommodationsContainer.appendChild(accommodationCard);
+        });
+      }
+      
+      function displayActivityData(activities) {
+        const lang = translations[currentLanguage] || translations.en;
+        const activitiesContainer = document.getElementById('activities-container');
+        activitiesContainer.innerHTML = '';
+        
+        if (!activities || activities.length === 0) {
+          activitiesContainer.innerHTML = '<p class="text-center">No activity options available.</p>';
+          return;
+        }
+        
+        activities.forEach(activity => {
+          const activityCard = document.createElement('div');
+          activityCard.classList.add('card', 'bg-base-100', 'shadow-md', 'itinerary-card');
+          
+          const activityBody = document.createElement('div');
+          activityBody.classList.add('card-body', 'p-4');
+          
+          const activityName = document.createElement('h3');
+          activityName.classList.add('card-title', 'text-lg');
+          activityName.textContent = activity.name;
+          
+          const categoryBadge = document.createElement('div');
+          categoryBadge.classList.add('badge', 'badge-primary', 'badge-sm', 'ml-2');
+          categoryBadge.textContent = activity.category;
+          activityName.appendChild(categoryBadge);
+          
+          const locationDiv = document.createElement('p');
+          locationDiv.classList.add('text-sm', 'mb-3');
+          locationDiv.innerHTML = `<i class="fas fa-map-marker-alt mr-1"></i> ${activity.location}`;
+          
+          const detailsGrid = document.createElement('div');
+          detailsGrid.classList.add('grid', 'grid-cols-2', 'gap-2', 'mb-3');
+          
+          const durationDiv = document.createElement('div');
+          durationDiv.innerHTML = `<span class="font-semibold">${lang.duration}:</span> ${activity.duration}`;
+          
+          const costDiv = document.createElement('div');
+          costDiv.innerHTML = `<span class="font-semibold">${lang.estimatedCost}:</span> ${activity.estimatedCost}`;
+          
+          const bestTimeDiv = document.createElement('div');
+          bestTimeDiv.innerHTML = `<span class="font-semibold">${lang.bestTime}:</span> ${activity.bestTimeToVisit}`;
+          
+          detailsGrid.appendChild(durationDiv);
+          detailsGrid.appendChild(costDiv);
+          detailsGrid.appendChild(bestTimeDiv);
+          
+          const description = document.createElement('p');
+          description.classList.add('text-sm', 'mb-4');
+          description.textContent = activity.description;
+          
+          const btnGroup = document.createElement('div');
+          btnGroup.classList.add('card-actions', 'justify-end');
+          
+          const viewDetailsBtn = document.createElement('button');
+          viewDetailsBtn.classList.add('btn', 'btn-outline', 'btn-sm');
+          viewDetailsBtn.textContent = lang.viewDetails;
+          
+          const bookNowBtn = document.createElement('button');
+          bookNowBtn.classList.add('btn', 'btn-primary', 'btn-sm');
+          bookNowBtn.textContent = lang.bookNow;
+          
+          btnGroup.appendChild(viewDetailsBtn);
+          btnGroup.appendChild(bookNowBtn);
+          
+          activityBody.appendChild(activityName);
+          activityBody.appendChild(locationDiv);
+          activityBody.appendChild(detailsGrid);
+          activityBody.appendChild(description);
+          activityBody.appendChild(btnGroup);
+          
+          activityCard.appendChild(activityBody);
+          activitiesContainer.appendChild(activityCard);
+        });
+      }
+      
+      function createActivityCard(activity, lang) {
+        const card = document.createElement('div');
+        card.classList.add('card', 'bg-base-200', 'shadow-sm', 'mb-3');
+        
+        const cardBody = document.createElement('div');
+        cardBody.classList.add('card-body', 'p-4');
+        
+        const cardTitle = document.createElement('h5');
+        cardTitle.classList.add('card-title', 'text-md');
+        cardTitle.textContent = activity.activity;
+        
+        const locationText = document.createElement('p');
+        locationText.classList.add('text-sm');
+        locationText.innerHTML = `<i class="fas fa-map-marker-alt mr-1"></i> ${activity.location}`;
+        
+        const description = document.createElement('p');
+        description.classList.add('text-sm', 'my-2');
+        description.textContent = activity.description;
+        
+        const detailsDiv = document.createElement('div');
+        detailsDiv.classList.add('flex', 'justify-between', 'text-sm', 'mt-2');
+        
+        const costDiv = document.createElement('div');
+        costDiv.innerHTML = `<span class="font-semibold">${lang.estimatedCost}:</span> ${activity.estimatedCost}`;
+        
+        const timeDiv = document.createElement('div');
+        if (activity.travelTime) {
+          timeDiv.innerHTML = `<i class="fas fa-walking mr-1"></i> ${activity.travelTime}`;
+        }
+        
+        detailsDiv.appendChild(costDiv);
+        detailsDiv.appendChild(timeDiv);
+        
+        cardBody.appendChild(cardTitle);
+        cardBody.appendChild(locationText);
+        cardBody.appendChild(description);
+        cardBody.appendChild(detailsDiv);
+        card.appendChild(cardBody);
+        
+        return card;
+      }
+      
+      function createMealCard(meal, lang) {
+        const card = document.createElement('div');
+        card.classList.add('card', 'bg-base-200', 'shadow-sm', 'mb-3', 'ml-6');
+        
+        const cardBody = document.createElement('div');
+        cardBody.classList.add('card-body', 'p-4');
+        
+        const mealTypeDiv = document.createElement('div');
+        mealTypeDiv.classList.add('flex', 'items-center', 'mb-2');
+        
+        const mealIcon = document.createElement('i');
+        
+        if (meal.type.toLowerCase().includes('breakfast')) {
+          mealIcon.classList.add('fas', 'fa-coffee', 'mr-2', 'text-primary');
+        } else if (meal.type.toLowerCase().includes('lunch')) {
+          mealIcon.classList.add('fas', 'fa-utensils', 'mr-2', 'text-primary');
+        } else if (meal.type.toLowerCase().includes('dinner')) {
+          mealIcon.classList.add('fas', 'fa-utensils', 'mr-2', 'text-primary');
+        }
+        
+        const mealType = document.createElement('h5');
+        mealType.classList.add('font-semibold');
+        mealType.textContent = meal.type;
+        
+        mealTypeDiv.appendChild(mealIcon);
+        mealTypeDiv.appendChild(mealType);
+        
+        const restaurantDiv = document.createElement('div');
+        restaurantDiv.classList.add('mb-1');
+        restaurantDiv.textContent = meal.recommendation;
+        
+        const cuisineLocation = document.createElement('p');
+        cuisineLocation.classList.add('text-sm', 'mb-2');
+        cuisineLocation.textContent = `${meal.cuisine} - ${meal.location}`;
+        
+        const costDiv = document.createElement('div');
+        costDiv.classList.add('text-sm');
+        costDiv.innerHTML = `<span class="font-semibold">${lang.estimatedCost}:</span> ${meal.estimatedCost}`;
+        
+        cardBody.appendChild(mealTypeDiv);
+        cardBody.appendChild(restaurantDiv);
+        cardBody.appendChild(cuisineLocation);
+        cardBody.appendChild(costDiv);
+        card.appendChild(cardBody);
+        
+        return card;
+      }
+
+      // Download PDF functionality
+      downloadPdfBtn.addEventListener('click', function() {
+        // In a real application, this would generate a PDF
+        alert('PDF download functionality would be implemented here.');
+      });
+      
+      // Initialize UI language
+      updateUILanguage();
+      
+      // For demo purposes, you could auto-navigate to the preferences section
+      // Uncomment this to automatically start the process
+      // welcomeSection.classList.add('hidden');
+      // preferencesSection.classList.remove('hidden');
+    });
+  </script>
+</body>
+</html>
+          
